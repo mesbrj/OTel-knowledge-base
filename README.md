@@ -1,1 +1,1 @@
-# OTel--knowledge-base
+# OTel-knowledge-base
