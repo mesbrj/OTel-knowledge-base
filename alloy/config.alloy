@@ -1,0 +1,36 @@
+// Grafana Alloy configuration for receiving OTLP traces and forwarding to SkyWalking
+
+// OTLP HTTP receiver - receives traces from FastAPI application
+otelcol.receiver.otlp "default" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Batch processor - batches traces before sending
+otelcol.processor.batch "default" {
+  timeout = "5s"
+  send_batch_size = 100
+
+  output {
+    traces = [otelcol.exporter.otlp.skywalking.input]
+  }
+}
+
+// OTLP exporter - forwards traces to SkyWalking OAP
+otelcol.exporter.otlp "skywalking" {
+  client {
+    endpoint = "skywalking-oap:11800"
+    tls {
+      insecure = true
+    }
+  }
+}

@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  # Grafana Alloy - OpenTelemetry Collector
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+      - "12345:12345" # Alloy UI
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+    networks:
+      - observability
+    depends_on:
+      - skywalking-oap
+
+  # Apache SkyWalking OAP (Observability Analysis Platform)
+  skywalking-oap:
+    image: apache/skywalking-oap-server:10.1.0
+    container_name: skywalking-oap
+    ports:
+      - "11800:11800"  # gRPC
+      - "12800:12800"  # HTTP
+    environment:
+      SW_STORAGE: elasticsearch
+      SW_STORAGE_ES_CLUSTER_NODES: elasticsearch:9200
+      SW_HEALTH_CHECKER: default
+      SW_TELEMETRY: prometheus
+      # Enable OTLP receiver
+      SW_OTEL_RECEIVER: default
+      SW_OTEL_RECEIVER_ENABLED_OTEL_METRICS_RULES: "oap-meter.yaml"
+    networks:
+      - observability
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:12800/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # Apache SkyWalking UI
+  skywalking-ui:
+    image: apache/skywalking-ui:10.1.0
+    container_name: skywalking-ui
+    ports:
+      - "8080:8080"
+    environment:
+      SW_OAP_ADDRESS: http://skywalking-oap:12800
+      SW_ZIPKIN_ADDRESS: http://skywalking-oap:9412
+    networks:
+      - observability
+    depends_on:
+      skywalking-oap:
+        condition: service_healthy
+
+  # Elasticsearch - SkyWalking storage backend
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # FastAPI application
+  fastapi-app:
+    build:
+      context: ./python_fastapi
+      dockerfile: Dockerfile
+    container_name: fastapi-app
+    ports:
+      - "8000:8080"
+    environment:
+      # Point to Alloy for trace export
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      ENVIRONMENT: production
+      # Your app environment variables from .env
+      APP_URL: http://localhost:8000
+      PSQL_DATABASE_URL: ""
+      DEV_SQLITE_URL: sqlite+aiosqlite:///dev.db
+      TEST_SQLITE_URL: sqlite+aiosqlite:///test.db
+      DEBUG_SQLALCHEMY: "False"
+    networks:
+      - observability
+    depends_on:
+      - alloy
+
+networks:
+  observability:
+    driver: bridge
+
+volumes:
+  es-data:
+    driver: local
