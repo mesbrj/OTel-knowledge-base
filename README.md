@@ -18,7 +18,7 @@
 FastAPI (OTLP) → OTel Collector (Protocol Conversion) → SkyWalking (Zipkin) → Elasticsearch
 ```
 
-Using Zipkin protocol as SkyWalking's OTLP receiver doesn't expose standard endpoints.
+Using Zipkin protocol as SkyWalking's OTLP (traces) receiver doesn't expose standard endpoints.
 
 ## Quick Start
 
