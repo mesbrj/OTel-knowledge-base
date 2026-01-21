@@ -10,4 +10,7 @@ COPY .env .env
 
 EXPOSE 8080
 
-CMD ["python", "/src/main.py"]
+# Set PYTHONPATH so src modules can be imported
+ENV PYTHONPATH=/app/src
+
+CMD ["python", "/app/src/main.py"]

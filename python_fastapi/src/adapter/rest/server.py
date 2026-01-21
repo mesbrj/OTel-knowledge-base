@@ -14,7 +14,7 @@ from adapter.rest.routes import health_routes, crud_routes
 async def lifespan(app: FastAPI):
     setup_telemetry() # Initialize telemetry per worker
     container.initialize()
-    if settings.environment == "development":
+    if settings.ENVIRONMENT == "development":
         await container.db_manager().init_db()
     yield
     await container.db_manager().close_session()

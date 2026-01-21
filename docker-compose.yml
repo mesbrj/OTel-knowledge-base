@@ -1,20 +1,18 @@
 version: '3.8'
 
 services:
-  # Grafana Alloy - OpenTelemetry Collector
-  alloy:
-    image: grafana/alloy:latest
-    container_name: alloy
+  # OpenTelemetry Collector - OTLP receiver with Zipkin exporter
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
     ports:
       - "4317:4317"  # OTLP gRPC
       - "4318:4318"  # OTLP HTTP
-      - "12345:12345" # Alloy UI
+      - "13133:13133" # Health check
     volumes:
-      - ./alloy/config.alloy:/etc/alloy/config.alloy
+      - ./otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml
     command:
-      - run
-      - /etc/alloy/config.alloy
-      - --server.http.listen-addr=0.0.0.0:12345
+      - --config=/etc/otelcol-contrib/config.yaml
     networks:
       - observability
     depends_on:
@@ -22,26 +20,26 @@ services:
 
   # Apache SkyWalking OAP (Observability Analysis Platform)
   skywalking-oap:
-    image: apache/skywalking-oap-server:10.1.0
+    image: apache/skywalking-oap-server:10.3.0
     container_name: skywalking-oap
     ports:
-      - "11800:11800"  # gRPC
+      - "11800:11800"  # gRPC (SkyWalking native + OTLP)
       - "12800:12800"  # HTTP
+      - "9412:9412"   # Zipkin query API
     environment:
       SW_STORAGE: elasticsearch
       SW_STORAGE_ES_CLUSTER_NODES: elasticsearch:9200
       SW_HEALTH_CHECKER: default
       SW_TELEMETRY: prometheus
-      # Enable OTLP receiver
-      SW_OTEL_RECEIVER: default
-      SW_OTEL_RECEIVER_ENABLED_OTEL_METRICS_RULES: "oap-meter.yaml"
+    volumes:
+      - ./skywalking/config/application.yml:/skywalking/config/application.yml
     networks:
       - observability
     depends_on:
       elasticsearch:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:12800/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:12800/graphql -X POST -H 'Content-Type: application/json' -d '{\"query\":\"query{}\"}' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -49,7 +47,7 @@ services:
 
   # Apache SkyWalking UI
   skywalking-ui:
-    image: apache/skywalking-ui:10.1.0
+    image: apache/skywalking-ui:10.3.0
     container_name: skywalking-ui
     ports:
       - "8080:8080"
@@ -96,11 +94,9 @@ services:
     ports:
       - "8000:8080"
     environment:
-      # Point to Alloy for trace export
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-      ENVIRONMENT: production
-      # Your app environment variables from .env
+      ENVIRONMENT: development
       APP_URL: http://localhost:8000
       PSQL_DATABASE_URL: ""
       DEV_SQLITE_URL: sqlite+aiosqlite:///dev.db
@@ -109,7 +105,7 @@ services:
     networks:
       - observability
     depends_on:
-      - alloy
+      - otel-collector
 
 networks:
   observability:
