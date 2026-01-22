@@ -2,6 +2,7 @@ from os import environ
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import ORJSONResponse
 import uvicorn
 
 from config.settings import settings
@@ -20,7 +21,10 @@ async def lifespan(app: FastAPI):
     await container.db_manager().close_session()
     shutdown_telemetry() # Cleanup per worker
 
-web_app = FastAPI(lifespan=lifespan)
+web_app = FastAPI(
+    default_response_class = ORJSONResponse,
+    lifespan = lifespan
+    )
 
 # Instrument FastAPI for automatic HTTP request tracing
 instrument_app(web_app)

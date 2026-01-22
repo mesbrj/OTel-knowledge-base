@@ -26,6 +26,7 @@ services:
       - "11800:11800"  # gRPC (SkyWalking native + OTLP)
       - "12800:12800"  # HTTP
       - "9412:9412"   # Zipkin query API
+      - "1234:1234"   # Prometheus metrics (self-observability)
     environment:
       SW_STORAGE: elasticsearch
       SW_STORAGE_ES_CLUSTER_NODES: elasticsearch:9200

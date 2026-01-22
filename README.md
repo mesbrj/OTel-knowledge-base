@@ -9,7 +9,7 @@
 |-----------|---------|-------|
 | **FastAPI** | Instrumented Python web service | 8000 |
 | **OpenTelemetry Collector** | OTLP receiver with Zipkin exporter | 4317, 4318 |
-| **Apache SkyWalking** | APM platform with Zipkin integration | 8080, 9412, 12800 |
+| **Apache SkyWalking** | APM platform with Zipkin integration | 8080, 9412, 12800, 1234 |
 | **Elasticsearch** | Trace storage backend | 9200 |
 
 ## Architecture
@@ -18,7 +18,8 @@
 FastAPI (OTLP) → OTel Collector (Protocol Conversion) → SkyWalking (Zipkin) → Elasticsearch
 ```
 
-Using Zipkin protocol as SkyWalking's OTLP (traces) receiver doesn't expose standard endpoints.
+Using Zipkin protocol. SkyWalking's OTLP (traces) receiver doesn't worked as [expected](https://skywalking.apache.org/docs/main/next/en/setup/backend/otlp-trace/).
+More info about this issue can be found [here](https://github.com/apache/skywalking/discussions/11873).
 
 ## Quick Start
 
@@ -40,6 +41,7 @@ curl -X POST http://localhost:8000/teams \
 - **API Documentation**: http://localhost:8000/docs
 - **SkyWalking UI**: http://localhost:8080
 - **Zipkin Query API**: http://localhost:9412/zipkin/api/v2/services
+- **SkyWalking Metrics**: http://localhost:1234/metrics (Prometheus self-observability)
 
 ## View Traces
 
