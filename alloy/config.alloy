@@ -1,4 +1,4 @@
-// Grafana Alloy configuration for receiving OTLP and forwarding to SkyWalking via Zipkin
+// Grafana Alloy configuration for receiving OTLP and forwarding to SkyWalking
 
 // 1. Receive OTLP traces (gRPC on port 4317, HTTP on port 4318)
 otelcol.receiver.otlp "otlp_receiver" {
