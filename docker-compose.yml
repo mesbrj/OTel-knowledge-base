@@ -1,18 +1,20 @@
 version: '3.8'
 
 services:
-  # OpenTelemetry Collector - OTLP receiver with Zipkin exporter
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
-    container_name: otel-collector
+  # Grafana Alloy - OTLP receiver with Zipkin exporter
+  grafana-alloy:
+    image: grafana/alloy:latest
+    container_name: grafana-alloy
     ports:
       - "4317:4317"  # OTLP gRPC
       - "4318:4318"  # OTLP HTTP
-      - "13133:13133" # Health check
+      - "12345:12345" # Alloy UI
     volumes:
-      - ./otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
     command:
-      - --config=/etc/otelcol-contrib/config.yaml
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
     networks:
       - observability
     depends_on:
@@ -95,7 +97,7 @@ services:
     ports:
       - "8000:8080"
     environment:
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       ENVIRONMENT: development
       APP_URL: http://localhost:8000
@@ -106,7 +108,7 @@ services:
     networks:
       - observability
     depends_on:
-      - otel-collector
+      - grafana-alloy
 
 networks:
   observability:

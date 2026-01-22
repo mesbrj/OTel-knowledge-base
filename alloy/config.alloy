@@ -1,0 +1,36 @@
+// Grafana Alloy configuration for receiving OTLP and forwarding to SkyWalking via Zipkin
+
+// 1. Receive OTLP traces (gRPC on port 4317, HTTP on port 4318)
+otelcol.receiver.otlp "otlp_receiver" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+// 2. Batch processor for efficiency
+otelcol.processor.batch "default" {
+  timeout = "5s"
+  send_batch_size = 100
+  
+  output {
+    traces = [otelcol.exporter.otlp.skywalking.input]
+  }
+}
+
+// 3. Export to SkyWalking via OTLP (SkyWalking 10+ supports native OTLP)
+otelcol.exporter.otlp "skywalking" {
+  client {
+    endpoint = "skywalking-oap:11800"
+    tls {
+      insecure = true
+    }
+  }
+}
+

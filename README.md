@@ -7,19 +7,18 @@
 
 | Component | Purpose | Ports |
 |-----------|---------|-------|
-| **FastAPI** | Instrumented Python web service | 8000 |
-| **OpenTelemetry Collector** | OTLP receiver with Zipkin exporter | 4317, 4318 |
-| **Apache SkyWalking** | APM platform with Zipkin integration | 8080, 9412, 12800, 1234 |
+| **FastAPI** | Instrumented Python web service (fastAPI and SQLAlchemy) | 8000 |
+| **Grafana Alloy** | OTLP receiver with native OTLP exporter | 4317, 4318, 12345 |
+| **Apache SkyWalking** | APM platform with OTLP integration | 8080, 9412, 11800, 12800, 1234 |
 | **Elasticsearch** | Trace storage backend | 9200 |
 
 ## Architecture
 
 ```
-FastAPI (OTLP) → OTel Collector (Protocol Conversion) → SkyWalking (Zipkin) → Elasticsearch
+FastAPI (OTLP) → Grafana Alloy (OTLP) → SkyWalking (OTLP receiver → Zipkin internal format) → Elasticsearch
 ```
 
-Using Zipkin protocol. SkyWalking's OTLP (traces) receiver doesn't worked as [expected](https://skywalking.apache.org/docs/main/next/en/setup/backend/otlp-trace/).
-More info about this issue can be found [here](https://github.com/apache/skywalking/discussions/11873).
+SkyWalking 10.3.0+ [accepts native OTLP traces](https://skywalking.apache.org/docs/main/next/en/setup/backend/otlp-trace/) on port 11800 via `OpenTelemetryTraceHandler`, but internally converts them to Zipkin format for processing and storage. Traces are visible in the SkyWalking UI under: **Service Mesh → Services → Zipkin Trace**.
 
 ## Quick Start
 
@@ -37,8 +36,9 @@ curl -X POST http://localhost:8000/teams \
 
 ## Access Points
 
-- **FastAPI Application**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
+- **FastAPI service API Documentation**: http://localhost:8000/docs
+- **Grafana Alloy UI**: http://localhost:12345
+- **Grafana Alloy Metrics**: http://localhost:12345/metrics (Prometheus)
 - **SkyWalking UI**: http://localhost:8080
 - **Zipkin Query API**: http://localhost:9412/zipkin/api/v2/services
 - **SkyWalking Metrics**: http://localhost:1234/metrics (Prometheus self-observability)
@@ -60,15 +60,14 @@ curl http://localhost:9412/zipkin/api/v2/traces?serviceName=fastapi-service&limi
 
 ### Key Files
 
-- `otel-collector/config.yaml` - OTLP receivers, Zipkin exporter
-- `skywalking/config/application.yml` - Zipkin receiver/query modules
-- `docker-compose.yml` - Service orchestration
+- `alloy/config.alloy` - OTLP receivers, OTLP exporter to SkyWalking
+- `skywalking/config/application.yml` - OTLP receiver configuration
 
 ### Environment Variables
 
 ```bash
 # FastAPI
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_EXPORTER_OTLP_ENDPOINT=http://grafana-alloy:4318
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 
 # SkyWalking UI
@@ -80,7 +79,7 @@ SW_ZIPKIN_ADDRESS=http://skywalking-oap:9412
 
 ```bash
 # Start observability stack only
-podman-compose up -d otel-collector skywalking-oap skywalking-ui elasticsearch
+podman-compose up -d grafana-alloy skywalking-oap skywalking-ui elasticsearch
 
 # Run FastAPI locally
 cd python_fastapi
@@ -96,6 +95,7 @@ Captured spans include:
 
 ## Resources
 
-- [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)
+- [Grafana Alloy](https://grafana.com/docs/alloy/latest/)
 - [Apache SkyWalking](https://skywalking.apache.org/docs/)
 - [Zipkin API](https://zipkin.io/zipkin-api/)
+- [OpenTelemetry](https://opentelemetry.io/docs/)
